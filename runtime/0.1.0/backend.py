@@ -112,7 +112,7 @@ def app_icon(value):
     return None
 
 
-def app_rows():
+def app_rows(with_previews=True):
     rows, paths, seen = [], {}, set()
     desktop = set(os.environ.get('XDG_CURRENT_DESKTOP', 'Hyprland').split(':'))
     for root in data_roots()[:8]:
@@ -146,7 +146,7 @@ def app_rows():
             if entry.get('Terminal', 'false').lower() == 'true':
                 detail = detail[:480] + ' · Terminal'
             row = {'id': ident, 'label': name, 'detail': detail}
-            image = app_icon(entry.get('Icon', ''))
+            image = app_icon(entry.get('Icon', '')) if with_previews else None
             if image:
                 row['preview'] = image
             rows.append(row)
@@ -216,7 +216,7 @@ def main():
                 raise ValueError('Explicit --apply is required; nothing changed.')
             if args.verb != 'launch':
                 raise ValueError('Unsupported action; only launch is available.')
-            _, paths = app_rows()
+            _, paths = app_rows(with_previews=False)
             path = paths.get(args.id)
             if path is None:
                 raise ValueError('Selection is unknown or no longer available; refresh the catalogue.')

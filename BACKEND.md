@@ -6,7 +6,7 @@ Primary verb: `launch`. Reads installed desktop entries from absolute `$XDG_DATA
 
 Rows show actual Name, canonical desktop ID, available GenericName/Comment/Categories and Terminal status. Application type, Hidden/NoDisplay, OnlyShowIn/NotShowIn and TryExec are honored; current desktop defaults to Hyprland only when XDG_CURRENT_DESKTOP is absent. Malformed/duplicate-key/unsupported entries are skipped. Installed user desktop entries are trusted in exactly the normal launcher sense: GIO may execute their installed Exec/DBus action. This backend never parses or evaluates Exec and does not pretend to sandbox the launched application.
 
-A fresh visible installed ID resolves to its known desktop-file path; `gio launch <absolute-known-desktop-file>` does the platform interpretation. No arbitrary file argument, URI or command is accepted from the UI. Successful GIO handoff is reported as accepted, application startup not confirmed. Missing GIO fails rather than installing anything.
+A fresh visible installed ID resolves to its known desktop-file path; `gio launch <absolute-known-desktop-file>` does the platform interpretation. Action membership uses `app_rows(with_previews=False)`: only optional icon discovery is skipped; the same full bounded XDG scan, precedence and visibility checks still run. Normal catalogues retain previews. No arbitrary file argument, URI or command is accepted from the UI. Successful GIO handoff is reported as accepted, application startup not confirmed. Missing GIO fails rather than installing anything.
 
 ## Bounds and limitations
 
@@ -31,3 +31,5 @@ Feature-specific RED/GREEN receipts are immutable under ignored `release-output/
 Original backend receipt: `final-backend-GREEN.txt`: **15 test methods passed, zero failures/errors, no warnings**.
 
 Post-review XDG correction: `parent-xdg-red.log` reproduced three assertions; `parent-xdg-green.log` passes **17 methods**, including empty/relative XDG root fallback and Hidden override preservation. Current portable runner: `env -u PYTHONPATH /usr/bin/python3 scripts/run-tests.py --backend-only`. Original receipts/hashes are retained as historical checkpoints, not hashes of the corrected source.
+
+Artwork-work correction: `release-output/ponytail-fixes-1793557673318497712/{RED.log,GREEN.log,completion.json}` records strict RED→GREEN with **18 methods passing** in the portable offline runner. A Python audit hook counts actual raster-file open attempts (including missing files) in fresh backend subprocesses, without replacing filesystem reads. The mixed named/absolute/missing-icon fixture retains 53 catalogue artwork opens and both valid previews; each of seven valid/rejected actions drops to zero artwork opens. Literal shim argv remains unchanged; vanished entries, fresh Hidden overrides and unknown IDs still fail closed. These are operation counts, not measured latency or real application startup.

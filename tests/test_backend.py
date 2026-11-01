@@ -38,13 +38,26 @@ class BackendTests(unittest.TestCase):
         p = self.home / 'calls.jsonl'
         return [json.loads(s) for s in p.read_text().splitlines()] if p.exists() else []
 
-    def cli(self, *args, rc=0):
-        r = subprocess.run(['/usr/bin/python3',str(BACKEND),*args],cwd='/',env=self.env,
+    def cli(self, *args, rc=0, artwork_opens=None):
+        command = ['/usr/bin/python3',str(BACKEND),*args]
+        if artwork_opens is not None:
+            command = ['/usr/bin/python3','-c',
+                       'import json,os,runpy,sys\n'
+                       'opened=[]\n'
+                       'def audit(event,args):\n'
+                       ' if event == "open" and isinstance(args[0],str) and args[0].endswith((".png",".jpg",".jpeg")): opened.append(args[0])\n'
+                       'sys.addaudithook(audit)\n'
+                       'sys.argv=sys.argv[1:]\n'
+                       'try: runpy.run_path(sys.argv[0],run_name="__main__")\n'
+                       'finally: print(json.dumps(len(opened)),file=sys.stderr)\n',str(BACKEND),*args]
+        r = subprocess.run(command,cwd='/',env=self.env,
                            stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=15)
         self.assertEqual(r.returncode,rc,r.stderr.decode()+r.stdout.decode())
         self.assertTrue(r.stdout.strip(), 'backend must emit JSON')
         self.assertLessEqual(len(r.stdout),1048576)
         self.assertNotIn(b'Traceback',r.stdout+r.stderr)
+        if artwork_opens is not None:
+            artwork_opens.append(json.loads(r.stderr))
         return json.loads(r.stdout)
 
     def test_offline_box_is_private(self):
@@ -204,6 +217,36 @@ class BackendTests(unittest.TestCase):
                 self.assertNotIn('preview',self.cli('catalog')['rows'][0])
         path.write_text('[Desktop Entry]\nType=Application\nName=Sample\nExec=never-run\nIcon='+str(icon)+'\n')
         self.assertEqual(self.cli('catalog')['rows'][0]['preview'],str(icon))
+
+    def test_launch_membership_skips_artwork_but_keeps_fresh_xdg_validation(self):
+        import base64
+        png=base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l2kAAAAASUVORK5CYII=')
+        icon=self.home/'.local/share/icons/hicolor/48x48/apps/sample.png'
+        icon.parent.mkdir(parents=True);icon.write_bytes(png)
+        paths=[self.desktop('named.desktop','Icon=sample\n'),
+               self.desktop('absolute.desktop','Icon='+str(icon)+'\n'),
+               self.desktop('missing.desktop','Icon=missing\n',base=self.home/'system')]
+        self.desktop('hidden.desktop','Hidden=true\n')
+        self.desktop('hidden.desktop','Icon=missing\n',base=self.home/'system')
+        self.shim('gio')
+        catalog_opens=[]
+        rows={r['id']:r for r in self.cli('catalog',artwork_opens=catalog_opens)['rows']}
+        self.assertEqual(set(rows),{p.name for p in paths})
+        for name in ('named.desktop','absolute.desktop'):
+            self.assertEqual(rows[name]['preview'],str(icon))
+        self.assertNotIn('preview',rows['missing.desktop'])
+        self.assertGreater(catalog_opens[0],0)
+        action_opens=[]
+        for path in paths:
+            self.assertTrue(self.cli('action','--id',path.name,'--verb','launch','--apply',artwork_opens=action_opens)['ok'])
+        self.assertEqual([c['argv'][1:] for c in self.calls()],[['launch',str(p)] for p in paths])
+        paths[0].unlink()
+        self.desktop('missing.desktop','Hidden=true\n')
+        for ident in ('named.desktop','missing.desktop','hidden.desktop','../../bad.desktop'):
+            self.assertFalse(self.cli('action','--id',ident,'--verb','launch','--apply',rc=1,artwork_opens=action_opens)['ok'])
+        self.assertEqual(len(self.calls()),len(paths))
+        print('ARTWORK_EVIDENCE '+json.dumps({'catalog_opens':catalog_opens,'action_opens':action_opens}),flush=True)
+        self.assertEqual(action_opens,[0]*7)
 
     def test_catalog_display_limit_keeps_fresh_full_launch_membership(self):
         for n in range(1030):
