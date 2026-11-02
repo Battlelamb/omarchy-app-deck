@@ -1,0 +1,27 @@
+{
+  "search": "Search applications…",
+  "loading": "Loading…",
+  "empty": "No matching items",
+  "loadFailed": "Unable to load catalogue. Check the backend and try Refresh.",
+  "apply": "Apply",
+  "copy": "Copy",
+  "launch": "Launch app",
+  "export": "Export",
+  "restore": "Restore",
+  "confirm": "Keep effect",
+  "select": "Select an item",
+  "refresh": "Refresh",
+  "working": "Working…",
+  "keys": "Arrows select · Enter launch · Esc close",
+  "results": {
+    "one": "%1 app shown",
+    "other": "%1 apps shown"
+  },
+  "title": "App Deck",
+  "explore": "Explore",
+  "configure": "Configure",
+  "clearSearch": "Clear search",
+  "details": "Selection details",
+  "subtitle": "Find your tools. Get back to work.",
+  "safety": "Launch is explicit; applications control what happens next."
+}
