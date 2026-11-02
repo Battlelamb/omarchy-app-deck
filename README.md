@@ -8,7 +8,7 @@ Search validated local XDG desktop entries, inspect their icons and launch expli
 
 ## Install and open
 
-Unpublished v0.2.0 candidate. The repository below is a **proposed publication target**, not a claim that it exists. After publication:
+Unpublished v0.2.1 candidate. Compact selected-detail readability has fresh private native checks; v0.2.0 qualification is historical (see validation). The repository below is a **proposed publication target**, not a claim that it exists. After publication:
 
 ```sh
 omarchy plugin add https://github.com/Battlelamb/omarchy-app-deck --enable
