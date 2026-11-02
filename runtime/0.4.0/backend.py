@@ -21,6 +21,9 @@ import preferences
 
 SLUG = 'app-deck'
 PREFERENCE_SCHEMA = {
+    'density': {'type':'enum', 'default':'comfortable', 'label':'Density', 'choices':['comfortable','compact']},
+    'layout': {'type':'enum', 'default':'grid', 'label':'Layout', 'choices':['grid','list']},
+    'sortOrder': {'type':'enum', 'default':'default', 'label':'Sort order', 'choices':['default','name','favorites-first']},
     'view': {'type':'enum', 'default':'all', 'label':'Show', 'choices':['all','favorites','recent']},
     'collection': {'type':'string', 'default':'', 'label':'Pinned group (empty = all)', 'maxLength':256},
     'category': {'type':'string', 'default':'', 'label':'Desktop category (empty = all)', 'maxLength':64},
@@ -248,7 +251,7 @@ def catalog():
     metadata = preference_metadata(rows)
     shown = displayed_rows(rows)
     limited = ' Display limited; full scanned membership remains validated for actions.' if len(shown) < len(rows) else ''
-    return {**metadata, 'rows': shown, 'message': f'{len(rows)} installed desktop applications (bounded XDG scan).'+limited, 'actions':['launch','favorite'], 'actionLabel':'Launch'}
+    return {**metadata, 'rows': shown, 'message': f'{len(rows)} installed desktop applications (bounded XDG scan).'+limited, 'actions':['launch','copy-app-id','favorite'], 'actionLabel':'Launch'}
 
 
 def run_helper(argv):
@@ -344,13 +347,15 @@ def main():
                 raise ValueError('This action does not accept a payload.')
             if not args.apply:
                 raise ValueError('Explicit --apply is required; nothing changed.')
-            if args.verb != 'launch':
-                raise ValueError('Unsupported action; only launch is available.')
+            if args.verb not in ('launch', 'copy-app-id'):
+                raise ValueError('Unsupported action; use launch or copy-app-id.')
             _, paths = app_rows(with_previews=False)
             path = paths.get(args.id)
             if path is None:
                 raise ValueError('Selection is unknown or no longer available; refresh the catalogue.')
-            if isinstance(path, configparser.ConfigParser):
+            if args.verb == 'copy-app-id':
+                run_helper(['wl-copy', '--type', 'text/plain;charset=utf-8', '--', args.id.partition('::')[0]])
+            elif isinstance(path, configparser.ConfigParser):
                 with tempfile.TemporaryDirectory(prefix='app-deck-action-') as temporary:
                     selected = Path(temporary) / 'selected.desktop'
                     with selected.open('w', encoding='utf-8') as stream:
@@ -359,8 +364,11 @@ def main():
                     run_helper(['gio', 'launch', str(selected)])
             else:
                 run_helper(['gio', 'launch', str(path)])
-            result = {'ok': True, 'message': 'GIO accepted the selected desktop entry; application startup is not confirmed.'}
-        if args.command == 'action' and args.verb == 'launch':
+            message = ('Clipboard helper accepted the selected desktop-entry ID; no application was launched.'
+                       if args.verb == 'copy-app-id' else
+                       'GIO accepted the selected desktop entry; application startup is not confirmed.')
+            result = {'ok': True, 'message': message}
+        if args.command == 'action' and args.verb in ('launch', 'copy-app-id'):
             try:
                 result['preferences'] = preferences.remember(SLUG, PREFERENCE_SCHEMA, args.id)
             except (ValueError, OSError, UnicodeError):

@@ -11,6 +11,13 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 BACKEND = ROOT / Path(json.loads((ROOT / 'manifest.json').read_text())['entryPoints']['overlay']).parent / 'backend.py'
 
+def child_running(statfile):
+    try:
+        stat = statfile.read_text()
+    except FileNotFoundError:
+        return False
+    return stat.rpartition(') ')[2].split()[0] not in ('Z','X')
+
 class BackendTests(unittest.TestCase):
     def test_400_long_installed_favorites_and_launch_survive_real_controller(self):
         if not os.access('/tools/node', os.X_OK): self.skipTest('Pinned system Node unavailable for UI parser integration')
@@ -364,27 +371,62 @@ console.log('104k write and inclusive UTF-8 wire boundary accepted; overflow rej
         self.assertTrue(self.cli('action','--id','app1029.desktop','--verb','launch','--apply')['ok'])
         self.assertTrue(self.calls()[0]['argv'][-1].endswith('/app1029.desktop'))
 
+    def test_child_running_vanished_stat_file(self):
+        statfile = self.put('child.stat', '123 (worker) S 0')
+        class VanishingStat:
+            def exists(self):
+                return statfile.exists()
+            def read_text(self):
+                statfile.unlink()
+                return statfile.read_text()
+        self.assertFalse(child_running(VanishingStat()))
+        self.assertFalse(statfile.exists())
+
+    def test_child_running_states_and_comm(self):
+        statfile = self.home/'child.stat'
+        self.assertFalse(child_running(statfile))
+        for comm in ('worker', 'worker ) Z'):
+            for state in ('R', 'S', 'D', 'T', 't', 'I', 'Z', 'X'):
+                with self.subTest(comm=comm, state=state):
+                    statfile.write_text(f'123 ({comm}) {state} 0')
+                    self.assertEqual(child_running(statfile), state not in ('Z', 'X'))
+
+    def test_child_running_read_errors_propagate(self):
+        from unittest.mock import patch
+        statfile = self.put('child.stat', '123 (worker) S 0')
+        for error in (PermissionError, OSError):
+            with self.subTest(error=error), patch.object(Path, 'read_text', side_effect=error):
+                with self.assertRaises(error):
+                    child_running(statfile)
+
     def test_independent_deadline_survives_backend_termination(self):
-        import time
+        import signal, time
         self.desktop()
         self.shim('gio',body='import signal\nchild=os.fork()\nif child == 0:\n signal.signal(signal.SIGTERM,signal.SIG_IGN)\n time.sleep(30)\n sys.exit(0)\n(Path(os.environ["HOME"])/"child.pid").write_text(str(child))\ntime.sleep(30)')
         proc=subprocess.Popen(['/usr/bin/python3',str(BACKEND),'action','--id','sample.desktop','--verb','launch','--apply'],env=self.env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         pidfile=self.home/'child.pid'
+        def cleanup():
+            if proc.poll() is None:
+                proc.kill()
+            proc.wait(timeout=2)
+            if pidfile.exists():
+                try:
+                    os.kill(int(pidfile.read_text()),signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+        self.addCleanup(cleanup)
         deadline=time.monotonic()+2
         while not pidfile.exists() and time.monotonic()<deadline:
             time.sleep(.02)
         self.assertTrue(pidfile.exists())
         pid=int(pidfile.read_text())
         proc.terminate();proc.wait(timeout=2)
+        self.assertEqual(proc.returncode,-signal.SIGTERM)
         deadline=time.monotonic()+5
-        def running():
-            statfile=Path('/proc')/str(pid)/'stat'
-            return statfile.exists() and statfile.read_text().split()[2] not in ('Z','X')
-        while running() and time.monotonic()<deadline:
+        statfile=Path('/proc')/str(pid)/'stat'
+        while child_running(statfile) and time.monotonic()<deadline:
             time.sleep(.05)
-        alive=running()
-        if alive:
-            os.kill(pid,9)
+        alive=child_running(statfile)
         self.assertFalse(alive,'helper outlived its deadline after backend termination')
 
     def test_utf8_output_budget_precedes_row_limit(self):
@@ -557,12 +599,153 @@ console.log('104k write and inclusive UTF-8 wire boundary accepted; overflow rej
         import re
         for name in ('README.md','BACKEND.md','NOTICE.backend.md'):
             text=(ROOT/name).read_text()
-            self.assertNotIn('/home/leviathan',text)
+            self.assertNotRegex(text,r'/home/(?!user/)[^\s`]+')
             self.assertNotIn('/srv/projects',text)
             self.assertNotIn('runtime/0.2.1/',text)
             for target in re.findall(r'\]\(([^)]+)\)',text):
                 if not target.startswith(('https://','http://','#')):
                     self.assertTrue((ROOT/target.split('#')[0]).is_file(),target)
+
+    def test_common_display_schema_saves_exact_choices_and_resets_defaults(self):
+        expected = {'density': ('comfortable', ['comfortable', 'compact']),
+                    'layout': ('grid', ['grid', 'list']),
+                    'sortOrder': ('default', ['default', 'name', 'favorites-first'])}
+        result = self.cli('preferences')
+        for key, (default, choices) in expected.items():
+            self.assertIn(key, result['settingsSchema'])
+            self.assertEqual(result['settingsSchema'][key]['type'], 'enum')
+            self.assertEqual(result['settingsSchema'][key]['default'], default)
+            self.assertEqual(result['settingsSchema'][key]['choices'], choices)
+            self.assertEqual(result['preferences']['options'][key], default)
+        self.assertFalse((self.home/'.config').exists())
+        chosen = {'density':'compact', 'layout':'list', 'sortOrder':'favorites-first'}
+        result = self.cli('preferences', '--apply', '--payload', json.dumps({'options':chosen}))
+        for key, value in chosen.items():
+            self.assertEqual(result['preferences']['options'][key], value)
+        before = self.cli('preferences')['preferences']
+        self.assertEqual(before, result['preferences'])
+        for key in expected:
+            for value in ['../../invalid', '', True, 1, None, [], {}]:
+                with self.subTest(key=key, value=value):
+                    self.assertFalse(self.cli('preferences', '--apply', '--payload',
+                        json.dumps({'options':{key:value}}), rc=1)['ok'])
+                    self.assertEqual(self.cli('preferences')['preferences'], before)
+        self.cli('preferences', '--apply', '--payload', '{"options":{"sortOrder":"name"}}')
+        result = self.cli('preferences', '--apply', '--payload', '{"reset":true}')
+        for key, (default, _) in expected.items():
+            self.assertEqual(result['preferences']['options'][key], default)
+        self.assertEqual(self.calls(), [])
+
+    def test_copy_app_id_uses_fresh_installed_id_without_launching(self):
+        self.desktop('vendor/editor.desktop', 'Actions=New;\n[Desktop Action New]\nName=New Window\nExec=never-run --new\n')
+        self.shim('wl-copy')
+        self.shim('gio')
+        self.cli('preferences', '--apply', '--payload', '{"options":{"category":"Game","view":"favorites"}}')
+        for identity in ['vendor-editor.desktop', 'vendor-editor.desktop::New']:
+            result = self.cli('action', '--id', identity, '--verb', 'copy-app-id', '--apply')
+            self.assertTrue(result['ok'])
+            self.assertEqual(self.calls()[-1]['argv'][1:], ['--type','text/plain;charset=utf-8','--','vendor-editor.desktop'])
+            self.assertEqual(self.calls()[-1]['stdin'], '')
+            self.assertEqual(Path(self.calls()[-1]['argv'][0]).name, 'wl-copy')
+            self.assertEqual(result['preferences']['recent'][0], identity)
+            self.assertIn('desktop-entry ID', result['message'])
+        self.assertEqual(self.cli('catalog')['actions'], ['launch','copy-app-id','favorite'])
+
+    def test_display_defaults_upgrade_old_options_without_rewriting_store(self):
+        self.cli('preferences', '--apply', '--payload', '{"options":{"view":"favorites"},"favorites":["inert-id"]}')
+        store = next((self.home/'.config/omarchy/lego').glob('*/preferences.json'))
+        legacy = json.loads(store.read_bytes())
+        for key in ('density', 'layout', 'sortOrder'):
+            legacy['options'].pop(key)
+        store.write_text(json.dumps(legacy))
+        original = store.read_bytes()
+        result = self.cli('preferences')['preferences']
+        self.assertEqual(result['favorites'], ['inert-id'])
+        self.assertEqual(result['options']['view'], 'favorites')
+        self.assertEqual({key:result['options'][key] for key in ('density','layout','sortOrder')},
+                         {'density':'comfortable', 'layout':'grid', 'sortOrder':'default'})
+        self.assertEqual(store.read_bytes(), original)
+        self.assertEqual(self.calls(), [])
+
+    def test_copy_app_id_revalidates_visibility_actions_and_caller_boundaries(self):
+        path = self.desktop(extra='Actions=New;\n[Desktop Action New]\nName=New\nExec=never-run --new\n')
+        self.shim('wl-copy')
+        for args in [(), ('--id','../../sample.desktop','--apply'),
+                     ('--id',str(path),'--apply'), ('--id','sample.desktop::Unlisted','--apply'),
+                     ('--id','sample.desktop','--apply','--payload','{"path":"/etc/passwd"}'),
+                     ('--id','sample.desktop')]:
+            self.assertFalse(self.cli('action','--verb','copy-app-id',*args, rc=1)['ok'])
+        self.cli('catalog')
+        path.write_text(path.read_text().replace('Actions=New;', 'Actions='))
+        self.assertFalse(self.cli('action','--id','sample.desktop::New','--verb','copy-app-id','--apply', rc=1)['ok'])
+        self.desktop(extra='NoDisplay=true\n')
+        self.assertFalse(self.cli('action','--id','sample.desktop','--verb','copy-app-id','--apply', rc=1)['ok'])
+        path.unlink()
+        self.assertFalse(self.cli('action','--id','sample.desktop','--verb','copy-app-id','--apply', rc=1)['ok'])
+        self.assertEqual(self.calls(), [])
+        self.assertEqual(self.cli('preferences')['preferences']['recent'], [])
+
+    def test_copy_app_id_helper_failures_and_preference_warning_are_truthful(self):
+        self.desktop()
+        args = ('action','--id','sample.desktop','--verb','copy-app-id','--apply')
+        self.assertFalse(self.cli(*args, rc=1)['ok'])
+        self.shim('wl-copy', rc=8)
+        self.assertFalse(self.cli(*args, rc=1)['ok'])
+        self.assertEqual(self.cli('preferences')['preferences']['recent'], [])
+        self.shim('wl-copy', body='time.sleep(30)')
+        self.assertIn('timed out', self.cli(*args, rc=1)['message'])
+        self.assertEqual(self.cli('preferences')['preferences']['recent'], [])
+        self.shim('wl-copy')
+        self.cli('preferences', '--apply', '--payload', '{"options":{"layout":"list"}}')
+        store = self.home/'.config/omarchy/lego/app-deck/preferences.json'
+        store.write_text('broken')
+        result = self.cli(*args)
+        self.assertTrue(result['ok'])
+        self.assertIn('warning', result['message'].lower())
+        self.assertEqual(store.read_text(), 'broken')
+        self.assertEqual(self.calls()[-1]['argv'][-1], 'sample.desktop')
+
+    def test_copy_app_id_validates_beyond_display_cap_without_artwork_or_snapshot(self):
+        for n in range(1030):
+            self.desktop(f'app{n:04}.desktop')
+        self.assertNotIn('app1029.desktop', {r['id'] for r in self.cli('catalog')['rows']})
+        self.shim('wl-copy')
+        opened = []
+        result = self.cli('action','--id','app1029.desktop','--verb','copy-app-id','--apply', artwork_opens=opened)
+        self.assertTrue(result['ok'])
+        self.assertEqual(opened, [0])
+        self.assertEqual(self.calls()[0]['argv'][1:], ['--type','text/plain;charset=utf-8','--','app1029.desktop'])
+        self.assertEqual(list(self.home.glob('app-deck-action-*')), [])
+
+    def test_current_feature_docs_match_versioned_backend_contract(self):
+        for name in ('README.md', 'BACKEND.md'):
+            text = (ROOT/name).read_text()
+            self.assertIn('v0.4.0', text)
+            for key in ('density', 'layout', 'sortOrder', 'copy-app-id'):
+                self.assertIn(key, text)
+        reference = (ROOT/'BACKEND.md').read_text()
+        self.assertIn('runtime/0.4.0/backend.py', reference)
+        self.assertNotIn('runtime/0.3.0/backend.py', reference)
+
+    def test_new_copy_preserves_accepted_result_when_optional_snapshot_exceeds_wire_budget(self):
+        self.desktop()
+        self.shim('wl-copy')
+        prefs = self.cli('preferences')['preferences']
+        prefs['collections'] = {'g'+str(n): [str(i).zfill(4)+'x'*252 for i in range(512)] for n in range(9)}
+        store = self.home/'.config/omarchy/lego/app-deck/preferences.json'
+        store.parent.mkdir(parents=True)
+        store.parent.parent.chmod(0o700)
+        store.parent.chmod(0o700)
+        raw = json.dumps(prefs, ensure_ascii=False, separators=(',',':')).encode('utf-8')
+        self.assertGreater(len(raw), 1048576)
+        store.write_bytes(raw)
+        store.chmod(0o600)
+        result = self.cli('action','--id','sample.desktop','--verb','copy-app-id','--apply')
+        self.assertTrue(result['ok'])
+        self.assertIn('warning', result['message'].lower())
+        self.assertNotIn('preferences', result)
+        self.assertEqual(self.calls()[0]['argv'][-1], 'sample.desktop')
+        self.assertEqual(store.read_bytes(), raw)
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,23 +1,24 @@
-# App Deck backend · v0.3.0
+# App Deck backend · v0.4.0
 
 ## Exact CLI
 
 From the checkout root:
 
 ```sh
-/usr/bin/python3 runtime/0.3.0/backend.py catalog
-/usr/bin/python3 runtime/0.3.0/backend.py preferences
-/usr/bin/python3 runtime/0.3.0/backend.py preferences --apply --payload '{"options":{"category":"Office","view":"all"}}'
-/usr/bin/python3 runtime/0.3.0/backend.py preferences --apply --payload '{"collections":{"Writing":["org.example.Editor.desktop"]},"options":{"collection":"Writing"}}'
-/usr/bin/python3 runtime/0.3.0/backend.py preferences --apply --payload '{"reset":true}'
-/usr/bin/python3 runtime/0.3.0/backend.py action --id org.example.Editor.desktop --verb launch --apply
-/usr/bin/python3 runtime/0.3.0/backend.py action --id org.example.Editor.desktop::New --verb launch --apply
-/usr/bin/python3 runtime/0.3.0/backend.py action --id org.example.Editor.desktop --verb favorite --apply
+/usr/bin/python3 runtime/0.4.0/backend.py catalog
+/usr/bin/python3 runtime/0.4.0/backend.py preferences
+/usr/bin/python3 runtime/0.4.0/backend.py preferences --apply --payload '{"options":{"category":"Office","view":"all"}}'
+/usr/bin/python3 runtime/0.4.0/backend.py preferences --apply --payload '{"collections":{"Writing":["org.example.Editor.desktop"]},"options":{"collection":"Writing"}}'
+/usr/bin/python3 runtime/0.4.0/backend.py preferences --apply --payload '{"reset":true}'
+/usr/bin/python3 runtime/0.4.0/backend.py action --id org.example.Editor.desktop --verb launch --apply
+/usr/bin/python3 runtime/0.4.0/backend.py action --id org.example.Editor.desktop::New --verb launch --apply
+/usr/bin/python3 runtime/0.4.0/backend.py action --id org.example.Editor.desktop --verb copy-app-id --apply
+/usr/bin/python3 runtime/0.4.0/backend.py action --id org.example.Editor.desktop --verb favorite --apply
 ```
 
-Example IDs are illustrative: launch/favorite require IDs from fresh local membership. These are all commands/verbs: launch is primary, favorite secondary. Declared desktop actions use `launch`, not a new command verb or an input command string. No arbitrary Exec/path/URI/output argument, action payload, shell runner or Restore. Every action/preference write requires `--apply`; reads create no files. Invalid arguments/fields/IDs/verbs fail nonzero with one bounded JSON object and no traceback/provider-output dump. Runtime paths derive from `__file__`, not cwd.
+Example IDs are illustrative: launch/favorite require IDs from fresh local membership. These are all commands/verbs: launch is primary; copy-app-id and favorite are secondary. Declared desktop actions use `launch`, not a new command verb or an input command string. No arbitrary Exec/path/URI/output argument, action payload, shell runner or Restore. Every action/preference write requires `--apply`; reads create no files. Invalid arguments/fields/IDs/verbs fail nonzero with one bounded JSON object and no traceback/provider-output dump. Runtime paths derive from `__file__`, not cwd.
 
-Catalogue retains rows/actions/actionLabel/message and adds preferences/settingsSchema. Optional row metadata includes primary `category`, `favorite:true`, personal `collection` and validated local preview. Favorite toggles validate fresh full membership and do not launch. Successful launch requests update Recent only after a zero GIO-helper exit; a later storage error preserves acceptance with a warning. Acceptance is not application startup confirmation.
+Catalogue retains rows/actions/actionLabel/message and adds preferences/settingsSchema. Optional row metadata includes primary `category`, `favorite:true`, personal `collection` and validated local preview. Favorite toggles validate fresh full membership and do not launch. Successful launch/ID-copy requests update Recent only after a zero helper exit; a later storage error preserves acceptance with a warning. Acceptance is not application startup confirmation.
 
 ## Preferences, pinned groups and categories
 
@@ -26,6 +27,11 @@ Catalogue retains rows/actions/actionLabel/message and adds preferences/settings
 | `view` | enum, `all` | `all`, `favorites`, `recent` |
 | `collection` | string, empty | Exact pinned-group name <=256 characters; empty = all |
 | `category` | string, empty | Empty or `[A-Za-z][A-Za-z0-9-]{0,63}` desktop category token |
+| `density` | enum, `comfortable` | `comfortable`, `compact` |
+| `layout` | enum, `grid` | `grid`, `list` |
+| `sortOrder` | enum, `default` | `default`, `name`, `favorites-first` |
+
+The three display enums are saved for the native view to interpret; they do not alter source membership or action dispatch. Old valid stores missing these keys receive the defaults on read without an automatic rewrite. Existing options, favorites, Recent and collections remain intact; Reset includes the new defaults.
 
 Category is validated before settings storage and again before use. It matches any declared valid category, not only the row's first category. Views, personal groups and category filters intersect before display limiting; Recent retains most-recent-first order. Unknown group names yield an empty selection. Filters never replace fresh full membership checks at action time. Collections are the pinned groups; there is no separate group file or daemon.
 
@@ -34,6 +40,10 @@ Preference patches accept only options/favorites/collections. Options merge; sup
 Storage is absolute `$XDG_CONFIG_HOME/omarchy/lego/app-deck/preferences.json`, otherwise `$HOME/.config/omarchy/lego/app-deck/preferences.json`. Bounds: 512 favorites, 32 recents, 64 named groups, 512 IDs/group, nonempty control-free IDs <=256 characters. Stored IDs are inert data until fresh visible installed membership validates them. Reads do not create directories.
 
 New preference writes are preflighted under the store lock against an aggregate 128 KiB compact UTF-8 document budget before replacement. Individual list/text maxima do not imply their Cartesian maximum is supported. Legacy valid stores remain bounded to 16 MiB for reads and explicit Reset/recovery; a rejected write leaves the existing file unchanged. Replies use the common UTF-8 encoder below 1 MiB (including the newline, at most 1 MiB); the UI action parser uses the same strict byte ceiling. Oversized optional preference snapshots on successful commands are omitted with a warning, preserving `ok:true`; actual catalogue overflow still fails closed, without truncating saved data. A Recent-save failure likewise warns without reversing confirmed helper/export acceptance.
+
+## Copying the installed desktop-entry ID
+
+`copy-app-id` requires explicit `--apply`, no payload, and exact membership in a fresh full bounded XDG scan with previews disabled. The fixed helper vector is `wl-copy --type text/plain;charset=utf-8 -- DESKTOP_ID`; no path, Exec, URI, command or caller clipboard text is accepted. A declared-action row must still be listed and valid, then copies its parent `.desktop` ID without `::Action`. Filters and display caps do not authorize or invalidate an otherwise admitted entry. No GIO launch or temporary action snapshot is used for copying. It writes only the requested literal text, never reads clipboard/history, and remembers the selected row ID only after helper acceptance. A later preference error/oversized optional snapshot warns without undoing or falsifying acceptance; helper acceptance is not proof of live clipboard ownership.
 
 ## XDG scan and desktop-action execution
 
@@ -61,4 +71,4 @@ TMPDIR="${TMPDIR:?Set TMPDIR to an existing private scratch directory}" env -u P
 
 The shipped bwrap runner clears environment, uses fake HOME/private run/tmp and no live display/bus/compositor sockets/network, masks production setters and runs unittest discovery. Tests cover real XDG/config parsing, override/visibility/cap regressions, no-artwork membership, declared-action revalidation, preferences and source compilation. An actual installed GIO launches only a harmless file-writing fixture inside the offline box, proving desktop-snapshot interpretation without windows. Other fixtures use literal argv shims; neither proves every real application works.
 
-Ignored release-output/v030-result.json records final counted results, hashes and immutable RED/GREEN receipts. Those receipts are development-only, not runtime dependencies. New GUI behavior, upgrade/rollback, hosted CI and publication need their separate parent gates.
+Earlier release-output/v030-result.json describes v0.3.0 only. Current tests add literal base/action ID copying, fresh visibility/action refusal, caller-path/payload rejection, no-artwork full membership, helper failure/timeout and truthful preference warnings, plus saved-display-schema validation/migration. Native UI integration, live clipboard/apps, upgrade/rollback, hosted CI and publication need separate gates.

@@ -9,11 +9,20 @@ Find a local application, keep a Writing or Daily tools group close, and launch 
 
 [Install](#install-and-open) · [Controls](#controls) · [Preferences](#make-it-yours) · [Limits](#limits-and-safety) · [Backend reference](BACKEND.md)
 
-> **v0.3.0 · development/testing snapshot.** This is a source publication, not a stable release. Live open/close checks have passed; current app actions and full-shell upgrade/rollback remain unqualified. Helper acceptance does not confirm application startup.
+> **v0.4.0 · development candidate, not a stable release.** Offline backend checks cover desktop-ID copying and saved display schemas. Earlier open/close checks do not qualify this candidate; native UI integration, live clipboard/app actions and full-shell upgrade/rollback remain separate gates. Helper acceptance is not application startup. The install command follows the published branch, which may still be an earlier version.
 
-![App Deck native UI with six fictional app tiles, Field Notes selected and its monogram in the details panel](preview.png)
+![App Deck 0.4.0 native Browse with illustrative catalogue data](preview.png)
 
-*Historical native Qt/Quickshell capture from an isolated headless compositor: six fictional example apps with original monogram artwork. No installed apps are implied and actions were not exercised. This is not a v0.3.0 feature demonstration or a bundled app collection. [Preview provenance](docs/PREVIEW.md).*
+*Illustrative **0.4.0** native Qt component render with fictional/original example data. No installed library, desktop action or full-shell behavior is demonstrated. [Preview provenance](docs/PREVIEW.md).*
+
+<details>
+<summary>Preview native saved settings</summary>
+
+![App Deck 0.4.0 native Configure](configure-preview.png)
+
+*Illustrative Configure view; fields may scroll. The capture does not exercise Save or Reset.*
+
+</details>
 
 ## A deck for the task at hand
 
@@ -23,14 +32,15 @@ Find a local application, keep a Writing or Daily tools group close, and launch 
 | Keep daily tools nearby | Favorites and named personal groups |
 | Build a focused Writing view | A personal group, optionally combined with an `Office` category filter |
 | Open an app-specific action | A separate **App · Action** row, if declared by the installed desktop entry |
-| Return to a recent choice | Recent IDs saved after accepted launch requests |
+| Identify an installed launcher precisely | **More → copy app id** (`copy-app-id`), such as `org.example.Editor.desktop` |
+| Return to a recent choice | Recent IDs saved after accepted launch or ID-copy requests |
 | Recognize an app visually | Supported local PNG/JPEG icons, with a fallback when unavailable |
 
 Application rows honor XDG precedence and desktop visibility checks. Apps and their declared actions come from your machine; no apps, desktop entries or icon library are bundled or downloaded.
 
 ## Install and open
 
-Requires **Omarchy Quattro** with compatible Quickshell/Qt, `qs.Ui` and `qs.Commons`, system Python 3, GNU `timeout` and `gio`. No companion plugin, hub or indexing daemon is required.
+Requires **Omarchy Quattro** with compatible Quickshell/Qt, `qs.Ui` and `qs.Commons`, system Python 3, GNU `timeout` and `gio`; ID copying additionally needs `wl-copy` from `wl-clipboard`. No companion plugin, hub or indexing daemon is required.
 
 Review the source before enabling this testing snapshot:
 
@@ -62,10 +72,10 @@ The `trigger.` prefix places it under the native **Trigger** category. Do not re
 | Input or control | Result |
 | :--- | :--- |
 | Type while the catalogue has focus | Search the current app/action catalogue |
-| Arrow keys / Home / End | Navigate the grid / first match / last match |
+| Arrow keys / Home / End | Navigate the current grid or list / first match / last match |
 | Click a tile | Select only, without launching |
 | Enter / primary Launch button | Request launch of the selected app or declared action |
-| More | Toggle Favorite, add/remove an item from a group or delete a group |
+| More | Copy the desktop-entry ID, toggle Favorite or manage a personal group |
 | View selector | Open All items, Favorites, Recent or a personal group |
 | Configure | Save the default view, pinned group and desktop category |
 | Refresh | Reread installed desktop entries |
@@ -77,22 +87,26 @@ To build a group, select an app or action, open **More**, enter a **Collection n
 
 In **Configure**, choose a saved view and pinned group, then optionally enter a desktop-category token such as `Office`, `Utility` or `Development`. Empty means all categories. The filter matches any declared category, even if the row displays a different first category. Select **Save settings** to keep your choices; saved filters intersect.
 
+A cover-like app deck and a text-first launcher use the same saved schema: `density` = **comfortable** / compact, `layout` = **grid** / list, `sortOrder` = **default** / name / favorites-first. Bold values are defaults. Display choices never turn a saved ID into permission to launch.
+
+**Copy app ID** copies the installed desktop-entry identifier, not its filesystem path or Exec line. On an **App · Action** row it copies the parent `.desktop` ID without the `::Action` suffix, after validating that exact action still exists. Copying does not launch GIO or execute the desktop entry; it replaces the clipboard only on an explicit request. No clipboard contents or history are read.
+
 Preferences survive source updates at:
 
 ```text
 $XDG_CONFIG_HOME/omarchy/lego/app-deck/preferences.json
 ```
 
-If `XDG_CONFIG_HOME` is unset or relative, the fallback is `~/.config/omarchy/lego/app-deck/preferences.json`. **Configure → Reset preferences** clears only this plugin's options, favorites, recent IDs and groups. It does not edit desktop files or application settings. Recent tracks helper-accepted requests, not whether an app actually opened.
+If `XDG_CONFIG_HOME` is unset or relative, the fallback is `~/.config/omarchy/lego/app-deck/preferences.json`. **Configure → Reset preferences** clears only this plugin's options, favorites, recent IDs and groups. It does not edit desktop files or application settings. Recent tracks helper-accepted launch and ID-copy requests, not whether an app actually opened or still owns the clipboard.
 
 ## Limits and safety
 
 - **Installed desktop entries retain normal launcher trust.** GIO can execute their installed Exec/DBus behavior. This plugin does not sandbox apps or accept an arbitrary input command/path to launch.
-- Actions are checked against fresh local membership. Only actions declared by a visible installed entry are admitted; a saved ID cannot resurrect a removed action.
+- Launch and ID-copy actions are checked against fresh local membership. Only actions declared by a visible installed entry are admitted; a saved ID cannot resurrect a removed action.
 - Declared actions launch through a private temporary desktop snapshot. `%k` refers to that snapshot, not the original file. Actions depending on the original desktop identity or extra vendor fields may not work.
 - Launch acceptance is not startup confirmation. A timeout may follow partial acceptance; dismissing cannot undo a launch. There is no Restore.
 - Scans admit at most **4,096 app/action rows**; display is limited to **1,024 rows** and a byte budget. Names are unlocalized. Local PNG/JPEG lookup is not a complete icon-theme implementation; SVG and remote icons are unsupported.
-- New preference saves have a **128 KiB aggregate budget**. Rejected saves preserve the file. A later Recent-save or optional-snapshot warning does not reverse a confirmed launch request.
+- New preference saves have a **128 KiB aggregate budget**. Rejected saves preserve the file. A later Recent-save or optional-snapshot warning does not reverse a confirmed launch or copy request.
 
 <details>
 <summary><strong>Verification and troubleshooting</strong></summary>
@@ -106,7 +120,7 @@ env -u PYTHONPATH PATH=/usr/bin /usr/bin/python3 scripts/run-tests.py --backend-
 env -u PYTHONPATH PATH=/usr/bin bash test.sh
 ```
 
-The backend runner needs `bwrap`; the full suite also needs Node.js and the native Qt/Quickshell test dependencies. Offscreen UI fixtures, historical previews and earlier-version checks do not qualify v0.3.0 live actions, full-shell upgrade/rollback, long-soak or all-scale behavior.
+The backend runner needs `bwrap`; the full suite also needs Node.js and the native Qt/Quickshell test dependencies. Offscreen UI fixtures, historical previews and earlier-version checks do not qualify v0.4.0 native display controls, live clipboard/app actions, full-shell upgrade/rollback, long-soak or all-scale behavior.
 
 | Symptom | Check |
 | :--- | :--- |

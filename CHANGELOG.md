@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0 — development/testing source snapshot
+
+- Copy fresh installed desktop-entry IDs without launching an app; declared action rows copy their parent entry ID.
+- Add saved grid/list layout, comfortable/compact density and deterministic default/name/favorites-first ordering. Preserve legacy preferences outside the installed source and explicit Reset.
+- Refresh the native Explore/Configure surfaces and plugin-specific documentation. Keep standalone packages, explicit actions and recovery guards.
+- Synchronize native cancellation fixtures on bounded child readiness instead of a fixed startup delay; production process ownership is unchanged.
+- Final qualification results and limits are recorded separately; source publication is not live-action, full-shell, GPU or marketplace approval.
+
 ## 0.3.0 — UNRELEASED qualification candidate
 
 - Add declared desktop-action rows, category filters, favorites, recent launches, named collections and saved catalogue settings.

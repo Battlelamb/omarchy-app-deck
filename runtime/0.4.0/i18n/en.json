@@ -23,5 +23,18 @@
   "clearSearch": "Clear search",
   "details": "Selection details",
   "subtitle": "Find your tools. Get back to work.",
-  "safety": "Launch is explicit; applications control what happens next."
+  "safety": "Launch is explicit; applications control what happens next.",
+  "copy-unicode": "Copy Unicode escapes",
+  "copy-app-id": "Copy desktop-entry ID",
+  "copy-css": "Copy CSS palette",
+  "copy-codepoint": "Copy codepoint",
+  "open-folder": "Open folder",
+  "shuffle": "Shuffle selection",
+  "copy-color": "Copy color",
+  "capture": "Capture preset",
+  "import": "Import preset",
+  "export-preset": "Export preset",
+  "preview": "Preview",
+  "compare": "Compare",
+  "favorite": "Favorite"
 }
