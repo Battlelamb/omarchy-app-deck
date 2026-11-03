@@ -1,16 +1,16 @@
 {
   "schemaVersion": 1,
-  "id": "leviathan.app-deck",
+  "id": "battlelamb.app-deck",
   "name": "App Deck",
-  "version": "0.4.0",
-  "author": "Ömer Eren",
+  "version": "0.4.1",
+  "author": "Battlelamb",
   "license": "GPL-3.0-only",
-  "description": "Search validated local XDG desktop entries, inspect their icons and launch explicitly. Not an arbitrary command runner; desktop application behavior remains external. Open: omarchy-shell shell summon leviathan.app-deck. Type to search; arrows select; Enter acts; Esc closes.",
+  "description": "Search validated local XDG desktop entries, inspect their icons and launch explicitly. Not an arbitrary command runner; desktop application behavior remains external. Open: omarchy-shell shell summon battlelamb.app-deck. Type to search; arrows select; Enter acts; Esc closes.",
   "kinds": [
     "overlay"
   ],
   "keepLoaded": true,
   "entryPoints": {
-    "overlay": "runtime/0.4.0/AppDeck.qml"
+    "overlay": "runtime/0.4.1/AppDeck.qml"
   }
 }

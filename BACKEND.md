@@ -1,19 +1,19 @@
-# App Deck backend · v0.4.0
+# App Deck backend · v0.4.1
 
 ## Exact CLI
 
 From the checkout root:
 
 ```sh
-/usr/bin/python3 runtime/0.4.0/backend.py catalog
-/usr/bin/python3 runtime/0.4.0/backend.py preferences
-/usr/bin/python3 runtime/0.4.0/backend.py preferences --apply --payload '{"options":{"category":"Office","view":"all"}}'
-/usr/bin/python3 runtime/0.4.0/backend.py preferences --apply --payload '{"collections":{"Writing":["org.example.Editor.desktop"]},"options":{"collection":"Writing"}}'
-/usr/bin/python3 runtime/0.4.0/backend.py preferences --apply --payload '{"reset":true}'
-/usr/bin/python3 runtime/0.4.0/backend.py action --id org.example.Editor.desktop --verb launch --apply
-/usr/bin/python3 runtime/0.4.0/backend.py action --id org.example.Editor.desktop::New --verb launch --apply
-/usr/bin/python3 runtime/0.4.0/backend.py action --id org.example.Editor.desktop --verb copy-app-id --apply
-/usr/bin/python3 runtime/0.4.0/backend.py action --id org.example.Editor.desktop --verb favorite --apply
+/usr/bin/python3 runtime/0.4.1/backend.py catalog
+/usr/bin/python3 runtime/0.4.1/backend.py preferences
+/usr/bin/python3 runtime/0.4.1/backend.py preferences --apply --payload '{"options":{"category":"Office","view":"all"}}'
+/usr/bin/python3 runtime/0.4.1/backend.py preferences --apply --payload '{"collections":{"Writing":["org.example.Editor.desktop"]},"options":{"collection":"Writing"}}'
+/usr/bin/python3 runtime/0.4.1/backend.py preferences --apply --payload '{"reset":true}'
+/usr/bin/python3 runtime/0.4.1/backend.py action --id org.example.Editor.desktop --verb launch --apply
+/usr/bin/python3 runtime/0.4.1/backend.py action --id org.example.Editor.desktop::New --verb launch --apply
+/usr/bin/python3 runtime/0.4.1/backend.py action --id org.example.Editor.desktop --verb copy-app-id --apply
+/usr/bin/python3 runtime/0.4.1/backend.py action --id org.example.Editor.desktop --verb favorite --apply
 ```
 
 Example IDs are illustrative: launch/favorite require IDs from fresh local membership. These are all commands/verbs: launch is primary; copy-app-id and favorite are secondary. Declared desktop actions use `launch`, not a new command verb or an input command string. No arbitrary Exec/path/URI/output argument, action payload, shell runner or Restore. Every action/preference write requires `--apply`; reads create no files. Invalid arguments/fields/IDs/verbs fail nonzero with one bounded JSON object and no traceback/provider-output dump. Runtime paths derive from `__file__`, not cwd.

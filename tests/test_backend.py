@@ -600,7 +600,7 @@ console.log('104k write and inclusive UTF-8 wire boundary accepted; overflow rej
         for name in ('README.md','BACKEND.md','NOTICE.backend.md'):
             text=(ROOT/name).read_text()
             self.assertNotRegex(text,r'/home/(?!user/)[^\s`]+')
-            self.assertNotIn('/srv/projects',text)
+            self.assertNotRegex(text,r'/srv/[^\s`]+')
             self.assertNotIn('runtime/0.2.1/',text)
             for target in re.findall(r'\]\(([^)]+)\)',text):
                 if not target.startswith(('https://','http://','#')):
@@ -720,11 +720,11 @@ console.log('104k write and inclusive UTF-8 wire boundary accepted; overflow rej
     def test_current_feature_docs_match_versioned_backend_contract(self):
         for name in ('README.md', 'BACKEND.md'):
             text = (ROOT/name).read_text()
-            self.assertIn('v0.4.0', text)
+            self.assertIn('v0.4.1', text)
             for key in ('density', 'layout', 'sortOrder', 'copy-app-id'):
                 self.assertIn(key, text)
         reference = (ROOT/'BACKEND.md').read_text()
-        self.assertIn('runtime/0.4.0/backend.py', reference)
+        self.assertIn('runtime/0.4.1/backend.py', reference)
         self.assertNotIn('runtime/0.3.0/backend.py', reference)
 
     def test_new_copy_preserves_accepted_result_when_optional_snapshot_exceeds_wire_budget(self):

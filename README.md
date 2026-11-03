@@ -9,7 +9,7 @@ Find a local application, keep a Writing or Daily tools group close, and launch 
 
 [Install](#install-and-open) · [Controls](#controls) · [Preferences](#make-it-yours) · [Limits](#limits-and-safety) · [Backend reference](BACKEND.md)
 
-> **v0.4.0 · development candidate, not a stable release.** Offline backend checks cover desktop-ID copying and saved display schemas. Earlier open/close checks do not qualify this candidate; native UI integration, live clipboard/app actions and full-shell upgrade/rollback remain separate gates. Helper acceptance is not application startup. The install command follows the published branch, which may still be an earlier version.
+> **v0.4.1 · development candidate, not a stable release.** Public namespace and metadata update; backend actions and saved preferences are unchanged. Earlier checks do not qualify this patch: full offline, live actions, native integration and full-shell upgrade/rollback require separate verification. Installation follows the published branch, which may still be an earlier version.
 
 ![App Deck 0.4.0 native Browse with illustrative catalogue data](preview.png)
 
@@ -38,6 +38,10 @@ Find a local application, keep a Writing or Daily tools group close, and launch 
 
 Application rows honor XDG precedence and desktop visibility checks. Apps and their declared actions come from your machine; no apps, desktop entries or icon library are bundled or downloaded.
 
+## Namespace migration in 0.4.1
+
+The plugin now uses `battlelamb.app-deck`. Existing enabled-plugin, menu and launcher references need an explicit update; a normal source updater cannot silently rename a manifest ID. Back up those references before changing them. Preferences remain at the same `omarchy/lego/app-deck/preferences.json` path, so no preference migration or reset is needed.
+
 ## Install and open
 
 Requires **Omarchy Quattro** with compatible Quickshell/Qt, `qs.Ui` and `qs.Commons`, system Python 3, GNU `timeout` and `gio`; ID copying additionally needs `wl-copy` from `wl-clipboard`. No companion plugin, hub or indexing daemon is required.
@@ -46,7 +50,7 @@ Review the source before enabling this testing snapshot:
 
 ```sh
 omarchy plugin add https://github.com/Battlelamb/omarchy-app-deck.git --enable
-omarchy-shell shell summon leviathan.app-deck
+omarchy-shell shell summon battlelamb.app-deck
 ```
 
 <details>
@@ -58,7 +62,7 @@ Installation does **not** add a menu entry or hotkey. Back up `~/.config/omarchy
 {
   "trigger.app-deck": {
     "label": "App Deck",
-    "action": "omarchy-shell shell summon leviathan.app-deck"
+    "action": "omarchy-shell shell summon battlelamb.app-deck"
   }
 }
 ```
@@ -120,7 +124,7 @@ env -u PYTHONPATH PATH=/usr/bin /usr/bin/python3 scripts/run-tests.py --backend-
 env -u PYTHONPATH PATH=/usr/bin bash test.sh
 ```
 
-The backend runner needs `bwrap`; the full suite also needs Node.js and the native Qt/Quickshell test dependencies. Offscreen UI fixtures, historical previews and earlier-version checks do not qualify v0.4.0 native display controls, live clipboard/app actions, full-shell upgrade/rollback, long-soak or all-scale behavior.
+The backend runner needs `bwrap`; the full suite also needs Node.js and the native Qt/Quickshell test dependencies. Offscreen UI fixtures, historical previews and earlier-version checks do not qualify v0.4.1 native display controls, live clipboard/app actions, full-shell upgrade/rollback, long-soak or all-scale behavior.
 
 | Symptom | Check |
 | :--- | :--- |
@@ -138,8 +142,8 @@ See [BACKEND.md](BACKEND.md) for exact XDG roots, CLI syntax, snapshot behavior 
 <summary><strong>Disable or remove</strong></summary>
 
 ```sh
-omarchy plugin disable leviathan.app-deck
-omarchy plugin remove leviathan.app-deck
+omarchy plugin disable battlelamb.app-deck
+omarchy plugin remove battlelamb.app-deck
 ```
 
 Remove your optional menu entry separately. Use Reset first if you want this plugin's saved preferences cleared; application settings are not part of that reset.

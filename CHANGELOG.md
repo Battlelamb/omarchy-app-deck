@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.1 — namespace and current-source cleanup
+
+- Use the public `battlelamb.*` namespace and Battlelamb author identity; update menu/launcher references explicitly.
+- Advance the single versioned runtime to 0.4.1, retaining the existing preference slug and storage path.
+- Refresh current documentation and namespace/version/privacy checks without changing actions, safety bounds or recovery behavior.
+
 ## 0.4.0 — development/testing source snapshot
 
 - Copy fresh installed desktop-entry IDs without launching an app; declared action rows copy their parent entry ID.
